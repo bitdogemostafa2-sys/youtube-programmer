@@ -101,12 +101,29 @@ def write_reports(report, secrets, folder):
     (folder/'candidates.json').write_text(redact(json.dumps(report['ready_for_review'], ensure_ascii=False, indent=2), secrets)+'\n', encoding='utf-8')
 
 
+def status_summary(report):
+    """Only aggregate integers and fixed labels may enter public check annotations."""
+    keys = report['keys']
+    examined = sum(not k['key_id'].endswith('-CONFIG') for k in keys)
+    successes = sum(k['access'] == 'read_endpoint_succeeded' for k in keys)
+    errors = sum(k['key_id'].endswith('-CONFIG') for k in keys)
+    return (f"credentials_examined={examined}; read_endpoints_succeeded={successes}; "
+            f"functional_candidates={len(report['ready_for_review'])}; "
+            f"unconfigured_providers={len(report['not_configured'])}; "
+            f"configuration_errors={errors}")
+
+
 def main():
     policy = json.loads((HERE/'free_policy.json').read_text(encoding='utf-8'))
     report, secrets = audit(os.environ, policy)
     write_reports(report, secrets, Path('.runtime/provider-audit'))
     successes = sum(k['access'] == 'read_endpoint_succeeded' for k in report['keys'])
-    print(f"Keys examined: {len(report['keys'])}; read endpoints succeeded: {successes}; functional candidates: {len(report['ready_for_review'])}")
+    summary = status_summary(report)
+    print(summary)
+    if os.environ.get('GITHUB_ACTIONS') == 'true':
+        # Readable via GitHub checks API even when artifact downloads are unavailable.
+        # Never include model IDs, exception text, provider bodies or credential values.
+        print('::notice title=Provider audit status::' + summary)
     if not successes:
         raise SystemExit(2)
 
