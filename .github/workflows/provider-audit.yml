@@ -1,5 +1,8 @@
 name: Private provider audit
 on:
+  push:
+    branches: [main]
+    paths: [tools/provider_audit/run-request.json]
   workflow_dispatch:
     inputs:
       mode:
@@ -22,10 +25,11 @@ jobs:
         with:
           python-version: '3.12'
       - name: Test audit safety (no external requests)
-        run: python -m unittest discover -s tests -p test_provider_audit.py -v
+        run: python -m unittest discover -s tests -p 'test_provider_audit*.py' -v
       - name: Discover capabilities and run explicitly approved free probes
         env:
-          AUDIT_MODE: ${{ inputs.mode }}
+          AUDIT_MODE: ${{ inputs.mode || 'inventory' }}
+          PROVIDER_KEYS_BUNDLE: ${{ secrets.PROVIDER_KEYS_BUNDLE }}
           GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
           GROQ_API_KEYS: ${{ secrets.GROQ_API_KEYS }}
           CLOUDFLARE_ACCOUNTS: ${{ secrets.CLOUDFLARE_ACCOUNTS }}

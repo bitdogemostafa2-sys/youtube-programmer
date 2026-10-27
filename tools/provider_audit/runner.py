@@ -6,17 +6,19 @@ from pathlib import Path
 from .catalog import PROVIDERS, TASKS, discover
 from .client import AuditError
 from .probes import approved, probe
+from .bundle import unpack
 
 
 HERE = Path(__file__).resolve().parent
 
 
 def audit(environ, policy, discover_fn=discover, probe_fn=probe):
+    environ, bundle_notes = unpack(environ)
     mode = environ.get('AUDIT_MODE', 'inventory')
     if mode not in ('inventory', 'free-tests'):
         raise ValueError('invalid_audit_mode')
     report = {'time_utc': datetime.now(timezone.utc).isoformat(), 'mode': mode,
-              'keys': [], 'not_configured': [], 'ready_for_review': [],
+              'keys': [], 'not_configured': [], 'ready_for_review': [], 'input_notes': bundle_notes,
               'scope': 'Discovery is not a functional test or a free-tier guarantee. No automatic app import.'}
     secrets = []
     budget = max(0, min(int(policy.get('max_generation_requests', 0)), 20))
