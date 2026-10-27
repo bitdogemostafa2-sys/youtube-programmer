@@ -1,5 +1,5 @@
 {
-  "request": "single-secret-setup-1",
+  "request": "credential-presence-check-2",
   "mode": "inventory",
   "note": "Non-secret trigger only. This file never contains credentials. Push-triggered runs only discover access and inventories, never generate media."
 }
