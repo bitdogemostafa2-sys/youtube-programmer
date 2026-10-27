@@ -1,0 +1,45 @@
+name: Private provider audit
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: inventory = read-only discovery; free-tests = reviewed zero-cost probes only
+        type: choice
+        options: [inventory, free-tests]
+        default: inventory
+permissions:
+  contents: read
+concurrency:
+  group: provider-audit
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test audit safety (no external requests)
+        run: python -m unittest discover -s tests -p test_provider_audit.py -v
+      - name: Discover capabilities and run explicitly approved free probes
+        env:
+          AUDIT_MODE: ${{ inputs.mode }}
+          GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
+          GROQ_API_KEYS: ${{ secrets.GROQ_API_KEYS }}
+          CLOUDFLARE_ACCOUNTS: ${{ secrets.CLOUDFLARE_ACCOUNTS }}
+          HF_API_KEYS: ${{ secrets.HF_API_KEYS }}
+          PEXELS_API_KEYS: ${{ secrets.PEXELS_API_KEYS }}
+          UNSPLASH_API_KEYS: ${{ secrets.UNSPLASH_API_KEYS }}
+          INWORLD_API_KEYS: ${{ secrets.INWORLD_API_KEYS }}
+          NASA_API_KEYS: ${{ secrets.NASA_API_KEYS }}
+        run: python -m tools.provider_audit.runner
+      - name: Upload redacted report (not raw responses or credentials)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-audit-report
+          path: .runtime/provider-audit/
+          retention-days: 7
+          if-no-files-found: error
