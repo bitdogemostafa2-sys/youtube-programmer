@@ -42,3 +42,22 @@ class SealedTests(unittest.TestCase):
         for name in ('AUDIT_MODE', 'GH_TOKEN', 'PYTHONPATH', 'BASH_ENV'):
             with self.assertRaisesRegex(ValueError, 'unsupported_credential_variable'):
                 seal({name: 'malicious'}, self.challenge)
+
+    def test_report_transport_respects_annotation_limit_and_integrity(self):
+        import base64
+        import gzip
+        import hashlib
+        import random
+        from unittest.mock import patch
+        from tools.provider_audit.sealed_runner import publish_report
+        random_source = random.Random(1)
+        raw = json.dumps([random_source.getrandbits(64) for _ in range(2000)]).encode()
+        notices = []
+        with patch('tools.provider_audit.sealed_runner.notice', side_effect=lambda a, b: notices.append((a, b))):
+            publish_report(raw)
+        parts = [value for title, value in notices if title.startswith('Provider audit report ') and '/' in title]
+        self.assertGreater(len(parts), 1)
+        self.assertTrue(all(len(part) <= 3000 for part in parts))
+        restored = gzip.decompress(base64.b64decode(''.join(parts)))
+        self.assertEqual(restored, raw)
+        self.assertEqual(notices[-1][1], hashlib.sha256(raw).hexdigest())
