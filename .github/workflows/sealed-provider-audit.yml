@@ -1,0 +1,40 @@
+name: One-use encrypted provider inventory
+on:
+  push:
+    branches: [main]
+    paths: [tools/provider_audit/sealed-run-request.json]
+permissions:
+  contents: read
+concurrency:
+  group: sealed-provider-inventory
+  cancel-in-progress: false
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install cryptographic envelope dependency
+        run: python -m pip install cryptography==46.0.3
+      - name: Test audit and envelope safety without provider requests
+        run: python -m unittest discover -s tests -p 'test_provider_audit*.py' -v
+      - name: Publish one-job public encryption challenge
+        run: python -m tools.provider_audit.sealed_runner prepare
+      - name: Receive encrypted credentials and inventory only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python -m tools.provider_audit.sealed_runner receive
+      - name: Remove temporary private material
+        if: always()
+        run: python -m tools.provider_audit.sealed_runner clean
+      - name: Upload sanitized inventory only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-audit-report
+          path: .runtime/provider-audit/
+          retention-days: 1
+          if-no-files-found: warn
