@@ -5,8 +5,9 @@ on:
     paths: [tools/provider_audit/sealed-run-request.json]
 permissions:
   contents: read
+  checks: write # Publish only a public encryption challenge, not private material.
 concurrency:
-  group: sealed-provider-inventory
+  group: sealed-provider-inventory-v2
   cancel-in-progress: false
 jobs:
   inventory:
@@ -22,6 +23,8 @@ jobs:
       - name: Test audit and envelope safety without provider requests
         run: python -m unittest discover -s tests -p 'test_provider_audit*.py' -v
       - name: Publish one-job public encryption challenge
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: python -m tools.provider_audit.sealed_runner prepare
       - name: Receive encrypted credentials and inventory only
         env:

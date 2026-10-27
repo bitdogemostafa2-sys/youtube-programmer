@@ -37,6 +37,20 @@ def prepare():
         output.write(key_bytes)
     challenge_path.write_text(json.dumps(challenge))
     notice('Sealed audit public challenge', json.dumps(challenge, separators=(',', ':')))
+    # Actions annotations appear only after the job completes. A separate completed
+    # check publishes this PUBLIC challenge while the receiver job is waiting.
+    payload = dict(name='sealed-challenge-'+os.environ['GITHUB_RUN_ID'],
+                   head_sha=os.environ['GITHUB_SHA'], status='completed', conclusion='success',
+                   output=dict(title='Public encryption challenge; not a provider result',
+                               summary=json.dumps(challenge, separators=(',', ':'))))
+    request = Request('https://api.github.com/repos/'+os.environ['GITHUB_REPOSITORY']+'/check-runs',
+                      data=json.dumps(payload).encode(),
+                      headers={'Authorization': 'Bearer '+os.environ['GH_TOKEN'],
+                               'Accept': 'application/vnd.github+json',
+                               'Content-Type': 'application/json',
+                               'User-Agent': 'ExplicitSealedProviderAudit/1'})
+    with build_opener(NoRedirect()).open(request, timeout=20) as response:
+        response.read(100000)
 
 
 def fetch_envelope(repository, ref):

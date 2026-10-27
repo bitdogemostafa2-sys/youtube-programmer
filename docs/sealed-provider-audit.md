@@ -7,7 +7,9 @@ access, persist a credential configuration, or verify zero-cost generation.
 1. A reviewed main-branch change to `sealed-run-request.json` starts an
    inventory-only job. Its delivery ref must be the current Arena session branch.
 2. The runner generates a new RSA-3072 key and publishes only its public key and
-   job-bound challenge as a check annotation. The private key is temporarily
+   job-bound challenge as a separate completed GitHub check (requiring scoped
+   checks:write permission). Actions annotations alone are delayed until job
+   completion and cannot serve as the live handoff. The private key is temporarily
    stored with mode 0600 in RUNNER_TEMP, outside the artifact directory.
 3. The sender verifies the challenge came from the intended GitHub job, then
    encrypts the credential mapping using AES-256-GCM and wraps the AES key using
