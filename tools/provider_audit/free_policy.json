@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "max_generation_requests": 20,
+  "approvals": [],
+  "note": "No provider or model is assumed free. Add a dated, reviewed zero-cost approval before enabling a probe. Text probes for Gemini/Groq only are implemented in this first version."
+}
