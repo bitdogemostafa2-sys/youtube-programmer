@@ -1,6 +1,7 @@
 """Explicit, inventory-only audit with a one-use encrypted credential handoff."""
 import base64
 import gzip
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -98,17 +99,23 @@ def receive():
             write_reports(report, secrets, folder)
             del secrets, report
             sanitized = (folder/'report.json').read_bytes()
-            packed = base64.b64encode(gzip.compress(sanitized, mtime=0)).decode('ascii')
-            if len(packed) > 120000:
-                raise ValueError('report_exceeds_annotation_budget_use_artifact')
-            chunks = [packed[i:i+6000] for i in range(0, len(packed), 6000)]
-            for index, chunk in enumerate(chunks, 1):
-                notice(f'Provider audit report {index}/{len(chunks)}', chunk)
+            publish_report(sanitized)
             safe_report = json.loads(sanitized)
             notice('Provider audit status', status_summary(safe_report))
             return 0 if any(k['access'] == 'read_endpoint_succeeded' for k in safe_report['keys']) else 2
         time.sleep(5)
     raise TimeoutError('encrypted_delivery_timeout')
+
+
+def publish_report(sanitized):
+    packed = base64.b64encode(gzip.compress(sanitized, mtime=0)).decode('ascii')
+    if len(packed) > 120000:
+        raise ValueError('report_exceeds_annotation_budget_use_artifact')
+    # GitHub truncates annotation messages at 4096 characters. Keep ample margin.
+    chunks = [packed[i:i+3000] for i in range(0, len(packed), 3000)]
+    for index, chunk in enumerate(chunks, 1):
+        notice(f'Provider audit report {index}/{len(chunks)}', chunk)
+    notice('Provider audit report SHA256', hashlib.sha256(sanitized).hexdigest())
 
 
 def clean():
